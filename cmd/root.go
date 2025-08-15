@@ -1,25 +1,47 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
+const (
+	URL_FLAG = "url"
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "web-crawler",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "A web crawler that discovers and traverses links starting from a specified URL.",
+	Long: `A web crawler tool that:
+- Starts from a specified root URL
+- Discovers and follows links using BFS
+- Respects robots.txt and politeness policies
+- Outputs crawl results in structured formats (JSON/text)
+- Supports concurrency and domain limitation
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {},
+Example usage:
+  web-crawler -url https://example.com -depth 3 -output sitemap.json`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		targetUrl, err := cmd.Flags().GetString(URL_FLAG)
+
+		if err != nil {
+			return err
+		}
+
+		err = IsValidUrl(targetUrl)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("URL: %s", targetUrl)
+		return nil
+	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -28,13 +50,21 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
+	rootCmd.Flags().StringP(URL_FLAG, "u", "", "A URL to be crawled")
+	if err := rootCmd.MarkFlagRequired(URL_FLAG); err != nil {
+		panic(err)
+	}
+}
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.web-crawler.yaml)")
+func IsValidUrl(str string) error {
+	u, err := url.ParseRequestURI(str)
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	if err != nil {
+		return err
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return errors.New("Invalid url")
+	}
+
+	return nil
 }
